@@ -26,7 +26,7 @@ const DashGitHubView = ({ plugins, ...props }) => {
   const showEmptyState = isEmpty(plugins);
 
   return (
-    <Col sm={12}>
+    <Col sm={12} {...props}>
       <Card>
         <CardTitle>Revisions to My Plugins</CardTitle>
         <CardBody className={styles["github-card-body"]}>

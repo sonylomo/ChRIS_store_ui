@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { CardGrid, Spinner } from "patternfly-react";
 import PropTypes from "prop-types";
 import Button from "../Button";
@@ -11,118 +11,96 @@ import ChrisStore from "../../store/ChrisStore";
 import Notification from "../Notification";
 import HttpApiCallError from "../../errors/HttpApiCallError";
 
-class Dashboard extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      pluginList: null,
-      loading: true,
-      error: null,
-    };
-    this.initialize = this.initialize.bind(this);
-    this.deletePlugin = this.deletePlugin.bind(this);
-    this.editPlugin = this.editPlugin.bind(this);
-  }
+const Dashboard = ({ store, ...props }) => {
+  const [pluginList, setPluginList] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const storeURL = process.env.REACT_APP_STORE_URL;
+  const userName = store.get("userName") || "";
 
-  componentDidMount() {
-    this.fetchPlugins().catch((err) => {
-      this.showNotifications(new HttpApiCallError(err));
-      console.error(err);
-    });
-  }
-  showNotifications = (error) => {
-    this.setState({
-      error: error.message,
-    });
-  };
-  fetchPlugins() {
-    const { store } = this.props;
-    const storeURL = process.env.REACT_APP_STORE_URL;
+  const fetchPlugins = useCallback(() => {
     const client = new Client(storeURL);
     const searchParams = {
       owner_username: store.get("userName"),
       limit: 20,
       offset: 0,
     };
-    this.setState({ loading: true, pluginList: null });
+    setLoading(true);
+    setPluginList(null);
 
     return client.getPlugins(searchParams).then((plugins) => {
-      this.setState((prevState) => {
-        const prevPluginList = prevState.pluginList ? prevState.pluginList : [];
-        const nextPluginList = prevPluginList.concat(plugins.data);
-        return { pluginList: nextPluginList, loading: false };
-      });
+      setPluginList(plugins.data);
+      setLoading(false);
       return plugins.data;
     });
-  }
+  },[store, storeURL])
 
-  async deletePlugin(pluginId) {
-    const { store } = this.props;
-    const storeURL = process.env.REACT_APP_STORE_URL;
+  useEffect(() => {
+    fetchPlugins().catch((err) => {
+      showNotifications(new HttpApiCallError(err));
+      console.error(err);
+    });
+  }, [fetchPlugins]);
+
+  const showNotifications = (error) => {
+    setError(error.message);
+  };
+
+
+  const deletePlugin = async (pluginId) => {
     const auth = { token: store.get("authToken") };
     const client = new Client(storeURL, auth);
-
     let response;
+
     try {
       response = await client.getPlugin(pluginId);
       await response.delete();
       if (response.data) {
-        this.fetchPlugins();
+        fetchPlugins();
       } else {
         throw new Error("Delete unsuccessful");
       }
-    } catch (e) {
-      this.showNotifications(new HttpApiCallError(e));
+    } catch (error) {
+      showNotifications(new HttpApiCallError(error));
+      return error;
     }
-    return response;
-  }
 
-  editPlugin(pluginId, publicRepo) {
-    const { store } = this.props;
-    const storeURL = process.env.REACT_APP_STORE_URL;
+    return response;
+  };
+
+  const editPlugin = (pluginId, publicRepo) => {
     const auth = { token: store.get("authToken") };
     const client = new Client(storeURL, auth);
-
     let response;
+
     try {
       response = client
         .getPlugin(pluginId)
         .then((plugin) => plugin.getPluginMeta())
-        .then((plgMeta) => plgMeta.put({ public_repo: publicRepo }));
+        .then((pluginMeta) => pluginMeta.put({ public_repo: publicRepo }));
       response.then(() => {
-        this.fetchPlugins();
+        fetchPlugins();
       });
-    } catch (e) {
-      this.showNotifications(new HttpApiCallError(e));
-      return e;
+    } catch (error) {
+      showNotifications(new HttpApiCallError(error));
+      return error;
     }
     return response;
-  }
+  };
 
-  initialize() {
-    const { arePluginsAvailable } = this.state;
-
-    this.setState({
-      arePluginsAvailable: !arePluginsAvailable,
-    });
-  }
-
-  render() {
-    const { pluginList, loading, error } = this.state;
-    const { store } = this.props;
-    const userName = store.get("userName") || "";
-    return (
-      <React.Fragment>
-        {error && (
+  return(
+    <>
+      {error && (
           <Notification
             title={error}
             position="top-right"
             variant="danger"
             closeable
-            onClose={() => this.setState({ error: null })}
+            onClose={() => setError(null)}
           />
         )}
-        <div className="plugins-stats">
+        <div className="plugins-stats" {...props}>
           <div className="row plugins-stats-row">
             <div className="title-bar">{`Dashboard for ${userName}`}</div>
             <div className="dropdown btn-group">
@@ -139,8 +117,8 @@ class Dashboard extends Component {
                 <div className={styles['dashboard-left-column']}>
                       <DashPluginCardView
                         plugins={pluginList}
-                        onDelete={this.deletePlugin}
-                        onEdit={this.editPlugin}
+                        onDelete={deletePlugin}
+                        onEdit={editPlugin}
                       />
                       <DashTeamView plugins={pluginList} />
                 </div>
@@ -151,10 +129,10 @@ class Dashboard extends Component {
             </div>
           </CardGrid>
         </div>
-      </React.Fragment>
-    );
-  }
-}
+    </>
+  )
+};
+
 Dashboard.propTypes = {
   store: PropTypes.objectOf(PropTypes.object),
 };

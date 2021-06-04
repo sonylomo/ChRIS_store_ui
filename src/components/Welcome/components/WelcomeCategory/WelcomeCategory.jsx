@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from 'react-router-dom';
 import { Card, CardTitle, CardBody, CardFooter } from "@patternfly/react-core";
 import Button from "../../../Button";
 import PropTypes from "prop-types";
@@ -13,7 +14,7 @@ const WelcomeCategory = ({ category, ...props }) => (
           <div className="welcome-category-item" key={name}>
             <img src={img} alt="" className="welcome-category-item-img" />
             <div className="welcome-category-item-body">
-              <div className="welcome-category-item-name">{name}</div>
+              <Link to="#"><h2 className="welcome-category-item-name">{name}</h2></Link>
               <div className="welcome-category-item-desc">{desc}</div>
               <div className="welcome-category-item-tags">{tags.join(" ")}</div>
             </div>
@@ -22,7 +23,7 @@ const WelcomeCategory = ({ category, ...props }) => (
       </CardBody>
       <CardFooter>
         <Button variant="primary" className="btn-block">
-          View More ...
+          View More
         </Button>
       </CardFooter>
     </Card>
